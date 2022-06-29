@@ -1,6 +1,6 @@
 # "Referral Reward Programs and Customer Value in Digital Transportation Platforms" - Associated Code
 
-The file "Thesis.R" contains the code for the differential customer value analysis within the paper mentioned above.
+The file "thesis" contains the code for the differential customer value analysis within the paper mentioned above.
 
 **Methods covered**
 - OLS
