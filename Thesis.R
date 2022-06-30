@@ -1,4 +1,4 @@
-##installing relevant packages
+##installing relevant packages - some will follow
 
 options(scipen = 999)
 
@@ -90,7 +90,7 @@ SD$months_existing_2019 = as.numeric(SD$days_existing_2019)/31
 SD$months_existing_2020 = as.numeric(SD$days_existing_2020)/31
 SD$months_existing_2021 = as.numeric(SD$days_existing_2021)/31
 
-#calculating the months existing in each year of the observation period
+#calculating the months existing in each year of the observation period by subsetting
 sub2019 <- subset(SD, last_active_day <'2020-01-01')
 sub2019$days2019 = as.Date(as.character(sub2019$last_active_day)) + 1 - as.Date(as.character(sub2019$created_at))
 sub2019$days2020 = '0'
@@ -108,7 +108,7 @@ sub2021$days2020 = '366'
 sub2021$days2021 = as.Date(as.character(sub2021$last_active_day)) - as.Date(0, origin = '2021-01-01')+1
 sub2021$days2021[sub2021$days2021>365] <- 365
 
-SDB <- rbind(sub2019, sub2020)
+SDB <- rbind(sub2019, sub2020) #bind the subsets to a whole dataset again
 SDB <- rbind(SDB, sub2021)
 SDB$days2019 = as.numeric(SDB$days2019)
 SDB$days2020 = as.numeric(SDB$days2020)
@@ -168,7 +168,7 @@ SDB$zeit = as.Date(as.character(SDB$last_active_day)) + 1 - as.Date(as.character
 SDB$zeit = as.numeric(SDB$zeit)
 hist(SDB$zeit)
 
-SDB$winzREF = SDB$num_mgm_referrals #calculate non-fraudulent referral amount
+SDB$winzREF = SDB$num_mgm_referrals #calculate non-fraudulent referral amount (above 10 is considered fraudulent)
 SDB$winzREF[SDB$num_mgm_referrals >= 10] <- 10
 
 SDBall <- na.omit(SDB) #removing users without a spending in any year for long format
@@ -282,7 +282,7 @@ APA$age = 2021-APA$birth_year-1
 APA$age = as.numeric(APA$age)
 APA = APA[,c(2:5,22,6:21)]
 APA$cluster <- as.numeric(APA$cluster)
-data.cor = cor(APA, method = c("pearson"))
+data.cor = cor(APA, method = c("pearson")) #pearson correlation - other options would be spearman or kendall
 
 ## H1a model
 
@@ -292,11 +292,11 @@ wilcox.test(logMS ~ mgm_acquired, data = RG) #Mann Whitney Test
 plot(lm(logMS~mgm_acquired,data=RG)) # residuals vs. fitted values
 
 h1a2model = lm(logMS ~ CA2 + CH + CG1 + CG2 + twenty + thirty + fourty + sixty +seventy + seventyplus 
-               + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez , RG)
+               + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez , RG) #model without main effect
 summary(h1a2model, robust = T)
 
 h1a3model = lm(logMS ~ mgm_acquired + CA2 + CH + CG1 + CG2 + twenty + thirty + fourty + sixty +seventy + seventyplus 
-              + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez , RG)
+              + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez , RG) #model with main effect RRP (considered mgm in the dataset)
 summary(h1a3model, robust = T)
 
 ## H1b model
@@ -305,7 +305,7 @@ install.packages("plm")
 library(plm) #panel format fixed-effects regression package
 
 subLong1 <- SDBLong
-subLong1 = subLong1[,c(1, 6, 42:45)]
+subLong1 = subLong1[,c(1, 6, 42:45)] #removing irrelevant columns
 subLong1$logvalue <- log(subLong1$value +1)
 
 h1b1model = plm(value ~ mgm_acquired:monthsexisting2 + factor(year), # random oneway panel model (fixed effects)
@@ -409,24 +409,24 @@ library(pscl)
 odTest(h3model2)
 
 # Split-Sampling based on Age
-Young <- subset(RG,RG$birth_year > 1980)
-Old <- subset(RG,RG$birth_year <= 1980)
-YoungP <- subset(subLong1,subLong1$birth_year > 1980)
-OldP <- subset(subLong1,subLong1$birth_year <= 1980)
+Young <- subset(RG,RG$birth_year > 1980) #for every model except H1b
+Exp <- subset(RG,RG$birth_year <= 1980)
+YoungP <- subset(subLong1,subLong1$birth_year > 1980) #for H1b
+ExpP <- subset(subLong1,subLong1$birth_year <= 1980)
 
 #H1a age-based
-h1aold = lm(logMS ~ mgm_acquired + CA2 + CH + CG1 + CG2
-            + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez, Old)
-summary(h1aold)
+h1aexp = lm(logMS ~ mgm_acquired + CA2 + CH + CG1 + CG2
+            + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez, Exp)
+summary(h1aexp)
 h1ayoung = lm(logMS ~ mgm_acquired + CA2 + CH + CG1 + CG2
               + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez, Young)
 summary(h1ayoung)
 
 #H1b age-based
-h1b2old = plm(logvalue ~ mgm_acquired:monthsexisting2 + factor(year), 
+h1b2exp = plm(logvalue ~ mgm_acquired:monthsexisting2 + factor(year), 
               index=c("Nummer"), 
-              model = "within", data = OldP)
-summary(h1b2old)
+              model = "within", data = ExpP)
+summary(h1b2exp)
 
 h1b2young = plm(logvalue ~ mgm_acquired:monthsexisting2 + factor(year), 
                 index=c("Nummer"), 
@@ -436,35 +436,35 @@ summary(h1b2young)
 table(RG$X2021_totalspendings == 0)
 
 #H2a age-based (unstratified) 
-res.cox.old <- coxph(Surv(zeit, status) ~ mgm_acquired + CA2 + CH + CG1 + CG2
-                     + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez+ cluster, data =  Old)
-summary(res.cox.old)
+res.cox.exp <- coxph(Surv(zeit, status) ~ mgm_acquired + CA2 + CH + CG1 + CG2
+                     + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez+ cluster, data =  Exp)
+summary(res.cox.exp)
 
 res.cox.young <- coxph(Surv(zeit, status) ~ mgm_acquired + CA2 + CH + CG1 + CG2
                        + Feb + Mar + Apr + May + Jun + Jul +Aug + Sep + Oct + Nov + Dez + cluster, data =  Young)
 summary(res.cox.young)
 
 #H2b age-based
-res.cox.told <- coxph(Surv(zeit, status) ~ mgm_acquired + tt(mgm_acquired) 
+res.cox.texp <- coxph(Surv(zeit, status) ~ mgm_acquired + tt(mgm_acquired) 
                       + strata(most_frequent_community) + strata(reg_month) + strata(cluster), 
-                      tt = function(x, t, ...) x * log(t), data =  Old)
-summary(res.cox.told)
+                      tt = function(x, t, ...) x * log(t), data =  Exp)
+summary(res.cox.texp)
 
 res.cox.tyoung <- coxph(Surv(zeit, status) ~ mgm_acquired + tt(mgm_acquired) 
                         + strata(most_frequent_community) + strata(reg_month) + strata(cluster), 
                         tt = function(x, t, ...) x * log(t), data =  Young)
 summary(res.cox.tyoung)
 
-logLik(res.cox.old)
+logLik(res.cox.exp)
 logLik(res.cox.young)
 logLik(res.cox.tyoung)
-logLik(res.cox.told)
+logLik(res.cox.texp)
 
 #H3 age-based
 
-h3modelold <- glm.nb(winzREF ~ mgm_acquired + CA2 + CH + CG1 + CG2 + twenty + thirty + fourty + sixty +seventy + seventyplus 
-                   + factor(reg_month) + factor(cluster), link = log, data = Old)
-summary(h3modelold)
+h3modelexp <- glm.nb(winzREF ~ mgm_acquired + CA2 + CH + CG1 + CG2 + twenty + thirty + fourty + sixty +seventy + seventyplus 
+                   + factor(reg_month) + factor(cluster), link = log, data = Exp)
+summary(h3modelexp)
 
 h3modelyoung <- glm.nb(winzREF ~ mgm_acquired + CA2 + CH + CG1 + CG2 + twenty + thirty + fourty + sixty +seventy + seventyplus 
                      + factor(reg_month) + factor(cluster), link = log, data = Young)
