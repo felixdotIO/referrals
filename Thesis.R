@@ -5,12 +5,6 @@ options(scipen = 999)
 install.packages('ggplot2')
 library(ggplot2)
 
-install.packages('ggpubr')
-library(ggpubr)
-
-install.packages('gridExtra')
-library(gridExtra)
-
 install.packages('DescTools')
 library(DescTools)
 
